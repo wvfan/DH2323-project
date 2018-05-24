@@ -1,0 +1,11 @@
+CMakeFiles
+Debug
+Project.dir
+Release
+report
+Win32
+ALL_BUILD.*
+cmake_install.cmake
+CMakeCache.txt
+Project.*
+ZERO_CHECK.*
