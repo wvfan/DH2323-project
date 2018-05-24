@@ -10,4 +10,5 @@ ALL_BUILD.*
 cmake_install.cmake
 CMakeCache.txt
 Project.*
+screenshot.bmp
 ZERO_CHECK.*
