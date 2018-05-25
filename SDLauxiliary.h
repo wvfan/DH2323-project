@@ -80,6 +80,7 @@ void PutPixelSDL( SDL_Surface* surface, int x, int y, glm::vec3 color )
 	*p = SDL_MapRGB( surface->format, r, g, b );
 }
 
+// Get the pixel from the image
 glm::vec3 GetPixelSDL(SDL_Surface* surface, int x, int y) {
 	Uint32* p = (Uint32*)surface->pixels + y * surface->pitch/4 + x;
 	
@@ -87,36 +88,6 @@ glm::vec3 GetPixelSDL(SDL_Surface* surface, int x, int y) {
 	SDL_GetRGB(*p, surface->format, &theKey.r, &theKey.g, &theKey.b);
 
 	return glm::vec3(theKey.r / 255.0, theKey.g / 255.0, theKey.b / 255.0);
-}
-
-glm::vec3 WavelengthToColor(double wavelength, double gamma = 0.8) {
-	double r = 0.0, g = 0.0, b = 0.0;
-	if (wavelength >= 380 && wavelength <= 440) {
-		double attenuation = 0.3 + 0.7 * (wavelength - 380) / (440 - 380);
-		r = pow(((-(wavelength - 440) / (440 - 380)) * attenuation), gamma);
-		b = pow(attenuation, gamma);
-	}
-	else if (wavelength >= 440 && wavelength <= 490) {
-		g = pow(((wavelength - 440) / (490 - 440)), gamma);
-		b = 1.0;
-	}
-	else if (wavelength >= 490 && wavelength <= 510) {
-		g = 1.0;
-		b = pow((-(wavelength - 510) / (510 - 490)), gamma);
-	}
-	else if (wavelength >= 510 && wavelength <= 580) {
-		r = pow(((wavelength - 510) / (580 - 510)), gamma);
-		g = 1.0;
-	}
-	else if (wavelength >= 580 && wavelength <= 645) {
-		r = 1.0;
-		g = pow((-(wavelength - 645) / (645 - 580)), gamma);
-	}
-	else if (wavelength >= 645 && wavelength <= 750) {
-		double attenuation = 0.3 + 0.7 * (750 - wavelength) / (750 - 645);
-		r = pow((1.0 * attenuation), gamma);
-	}
-	return glm::vec3(r, g, b);
 }
 
 #endif

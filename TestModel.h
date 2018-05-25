@@ -54,7 +54,6 @@ void LoadTestModel( std::vector<Planet>& planets ) {
 	double PI = 3.1415926535;
 
 	planets.clear();
-	planets.reserve(30);
 
 	planets.push_back(Planet(vec3(0, 0, 10), glm::mat3(vec3(1, 0, 0), vec3(0, 1, 0), vec3(0, 0, 1)), 2.318, 0, 0.13, "sun", "sun1", -1));
 	angle = 12.0 / 180 * PI;

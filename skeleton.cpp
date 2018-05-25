@@ -23,46 +23,46 @@ using glm::mat3;
 double PI = 3.1415926535;
 int oo = 1000000000;
 
+SDL_Surface* screen;
 const int SCREEN_WIDTH = 1366;
 const int SCREEN_HEIGHT = 768;
 int f = 400;
-const int imageSize = 400;
-SDL_Surface* screen;
-int t = 0;
-int dt = 0;
-int tr = 0;
-vec3 velocity = vec3(0.0, 0.0, 0.0);
+const int imageSize = 400; // Image for every map
+int t = 0; // Program running time in millisecond
+int dt = 0; // Delta time
+int tr = 0; // The real time, considering the playing speed
+vec3 velocity = vec3(0.0, 0.0, 0.0); // The velocity of view
 vector<Planet> planets;
 
-int mode = 0;
-const double colorShift = 0.6;
+int mode = 0; // Mode 0: normal; Mode 1: light speed only; Mode 2: light speed and redshift
+const double colorShift = 0.6; // The redshift ratio
+double movingSpeed = 0.9;
+double playSpeed = 1.0;
+
+// Constants for GUI
 const int PLANET_ICON_MARGIN = 10;
 const int PLANET_ICON_SIZE = 50;
 const int MOVING_DRAGBAR_WIDTH = 250;
 const int MOVING_DRAGBAR_HEIGHT = 50;
-double movingSpeed = 0.9;
 const double MOVING_SPEED_MIN = 0.1;
 const double MOVING_SPEED_MAX = 4;
-double playSpeed = 1.0;
 const double PLAY_SPEED_MIN = 0.1;
 const double PLAY_SPEED_MAX = 4;
-SDL_Surface *MOVING_IMAGE = IMG_Load("images/moving.png");
+SDL_Surface *MOVING_IMAGE = IMG_Load("images/moving.png"); // The image for drag bar
 
-int planetFocus = -1;
+int planetFocus = -1; // Which planet is focusing
 
 float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH];
 
 vec3 cameraP(0, 15, -5);
 mat3 cameraD(vec3(1, 0, 0), vec3(0, 0.707, 0.707), vec3(0, -0.707, 0.707));
-// vec3 cameraP(0, 20, 0);
-// mat3 cameraD(vec3(1, 0, 0), vec3(0, 0, 1), vec3(0, -1, 0));
 
 int mouseX;
 int mouseY;
 bool mouseDown;
-int mouseXB = 0;
-int mouseYB = 0;
-bool mouseDownB;
+int mouseXB = 0; // Last mouseX
+int mouseYB = 0; // Last mouseY
+bool mouseDownB; // Last left button down
 
 // ----------------------------------------------------------------------------
 // FUNCTIONS
@@ -80,11 +80,10 @@ int main(int argc, char* argv[]) {
 		Update();
 		Draw();
 	}
-
-	SDL_SaveBMP(screen, "screenshot.bmp");
 	return 0;
 }
 
+// Focus on a point, for focusing on planet
 void focusOnPoint(vec3 p) {
 	vec3 z1 = p;
 	double z1Len = sqrt(z1.x * z1.x + z1.y * z1.y + z1.z * z1.z);
@@ -96,21 +95,10 @@ void focusOnPoint(vec3 p) {
 	f = 50.0 / 2 * z1Len;
 }
 
-void calculatePlanetPos() {
-	for (size_t i = 0; i < planets.size(); i++) {
-		Planet planet = planets[i];
-		double radius = sqrt(planet.p.x * planet.p.x + planet.p.z * planet.p.z);
-		double a = -planet.speed / radius / 1000 * dt;
-		mat3 change(vec3(cos(a), 0, -sin(a)), vec3(0, 1, 0), vec3(sin(a), 0, cos(a)));
-		planets[i].p = change * planets[i].p;
-		a = planet.rotate / 1000 * dt;
-		change = mat3(vec3(cos(a), 0, -sin(a)), vec3(0, 1, 0), vec3(sin(a), 0, cos(a)));
-		planets[i].sdir = change * planets[i].sdir;
-	}
-}
-
+// Get the operation of GUI
 void updateGUI() {
-	if (mouseDown && !mouseDownB) {
+	if (mouseDown && !mouseDownB) { // Click
+		// Planet focusing
 		for (size_t o = 0; o < planets.size(); o++) {
 			int x = PLANET_ICON_MARGIN;
 			int y = PLANET_ICON_MARGIN + (PLANET_ICON_MARGIN + PLANET_ICON_SIZE) * o;
@@ -121,6 +109,7 @@ void updateGUI() {
 				planetFocus = o;
 			}
 		}
+		// Mode choosing
 		for (int o = 0; o < 3; o++) {
 			int x = SCREEN_WIDTH - 10 - 30;
 			int y = 10 + o * (5 + 30);
@@ -130,12 +119,14 @@ void updateGUI() {
 			}
 		}
 	}
-	if (mouseDown) {
+	if (mouseDown) { // Drag
+		// Moving speed drag bar
 		int x = 10;
 		int y = SCREEN_HEIGHT - 10 - MOVING_DRAGBAR_HEIGHT;
 		if (mouseX > x && mouseX < x + MOVING_DRAGBAR_WIDTH - 5 && mouseY > y && mouseY < y + MOVING_DRAGBAR_HEIGHT) {
 			movingSpeed = double(mouseX - x) / (MOVING_DRAGBAR_WIDTH - 5) * (MOVING_SPEED_MAX - MOVING_SPEED_MIN) + MOVING_SPEED_MIN;
 		}
+		// Playing speed drag bar
 		x = SCREEN_WIDTH - 10 - MOVING_DRAGBAR_WIDTH;
 		y = SCREEN_HEIGHT - 10 - MOVING_DRAGBAR_HEIGHT;
 		if (mouseX > x && mouseX < x + MOVING_DRAGBAR_WIDTH - 5 && mouseY > y && mouseY < y + MOVING_DRAGBAR_HEIGHT) {
@@ -150,10 +141,12 @@ void Update() {
 	dt = t2 - t;
 	cout << "Render time: " << dt << " ms." << endl;
 	
+	// Count the real play time
 	t = t2;
 	dt *= playSpeed;
 	tr += dt;
 
+	// Get mouse status
 	SDL_PumpEvents();
 	mouseDown = SDL_GetMouseState(&mouseX, &mouseY);
 	int dx = mouseX - mouseXB;
@@ -161,8 +154,9 @@ void Update() {
 
 	if (mode == 0 && planetFocus != -1) {
 		focusOnPoint(planets[planetFocus].gp - cameraP);
-	} else if (planetFocus == -1) {
+	} else if (planetFocus == -1) { // The view direction is controlled by mouse
 		if (mouseDown && mouseX > 60 && mouseX < SCREEN_WIDTH - 60 && mouseY < SCREEN_HEIGHT - 60) {
+			// Change the view direction
 			double a = double(dx) / 300;
 			mat3 change(vec3(cos(a), 0, -sin(a)), vec3(0, 1, 0), vec3(sin(a), 0, cos(a)));
 			cameraD = cameraD * change;
@@ -181,6 +175,7 @@ void Update() {
 	mouseYB = mouseY;
 	mouseDownB = mouseDown;
 
+	// Move the view point
 	Uint8* keystate = SDL_GetKeyState(0);
 	double speed = movingSpeed;
 	velocity = vec3(0, 0, 0);
@@ -204,45 +199,18 @@ void Update() {
 	}
 	velocity = cameraD * velocity;
 	cameraP += (float(dt) / 1000) * velocity;
-
-	calculatePlanetPos();
 }
 
-void drawPlanet(Planet planet) {
-	vec3 p = glm::inverse(cameraD) * (planet.gp - cameraP);
-	int x = round(p.x / p.z * f) + SCREEN_WIDTH / 2;
-	int y = -round(p.y / p.z * f) + SCREEN_HEIGHT / 2;
-	int r = round(planet.r / p.z * f);
-	mat3 dir = glm::inverse(cameraD) * planet.gdir * glm::transpose(planet.sdir);
-	float imageRatio = float(abs(t % 2000 - 1000)) / 1000;
-	for (int i = max(0, x - r); i < min(SCREEN_WIDTH, x + r); i++) {
-		for (int j = max(0, y - r); j < min(SCREEN_HEIGHT, y + r); j++) {
-			if (sqrt((i - x) * (i - x) + (j - y) * (j - y)) > r) continue;
-			double x1 = double(i - x) / r;
-			double y1 = -double(j - y) / r;
-			double z1 = -sqrt(1 - x1 * x1 - y1 * y1);
-			vec3 p1 = vec3(x1, y1, z1);
-			p1 = glm::inverse(dir) * p1;
-			double zinv = 1.0 / (p1.z * planet.r + p.z);
-			if (zinv > depthBuffer[j][i]) {
-				depthBuffer[j][i] = zinv;
-				vec3 pixel = GetPixelSDL(planet.image, round((p1.x + 1) / 2 * imageSize * 0.98), round((-p1.y + 1) / 2 * imageSize * 0.98));
-				vec3 pixel1 = GetPixelSDL(planet.image1, round((p1.x + 1) / 2 * imageSize * 0.98), round((-p1.y + 1) / 2 * imageSize * 0.98));
-				PutPixelSDL(screen, i, j, imageRatio * pixel + float(1.0 - imageRatio) * pixel1);
-			}
-		}
-	}
-}
-
-void drawPlanet1(Planet planet, bool focus) {
+void drawPlanet(Planet planet, bool focus) {
 	int tmin = tr - 100000000;
 	int tmax = tr;
 	vec3 p;
 	vec3 v;
-	if (mode == 0) {
+	if (mode == 0) { // If not consider the light speed, the current time is the retarded time
 		tmin = tr - 1;
 		tmax = tr + 1;
 	}
+	// Dichotomy algorithm to calculate the retarded time
 	for (; tmax - tmin > 1;) {
 		int tmid = (tmin + tmax) / 2;
 		double dis = double(tr - tmid) / 1000;
@@ -266,50 +234,56 @@ void drawPlanet1(Planet planet, bool focus) {
 	}
 	double velocityX = velocity.x * velocity.x + velocity.y * velocity.y + velocity.z * velocity.z;
 
-	if (focus) {
-		cout << p.x << " " << p.y << " " << p.z << endl;
+	if (focus) { // Focus on the planet
 		focusOnPoint(p);
 	}
 
 	p = glm::inverse(cameraD) * p;
-	int x = round(p.x / p.z * f) + SCREEN_WIDTH / 2;
-	int y = -round(p.y / p.z * f) + SCREEN_HEIGHT / 2;
-	int r = round(planet.r / p.z * f);
+	int x = round(p.x / p.z * f) + SCREEN_WIDTH / 2; // The 2D point in view
+	int y = -round(p.y / p.z * f) + SCREEN_HEIGHT / 2; // The 2D point in view
+	int r = round(planet.r / p.z * f); // The 2D radius in view
+	// Calculate the direction of the planet (self rotation)
 	double a = planet.rotate / 1000 * tmax;
 	mat3 sdir(vec3(cos(a), 0, -sin(a)), vec3(0, 1, 0), vec3(sin(a), 0, cos(a)));
 	mat3 dir = glm::inverse(cameraD) * planet.gdir * glm::transpose(sdir);
+	// Raster
 	for (int i = max(0, x - r); i < min(SCREEN_WIDTH, x + r); i++) {
 		for (int j = max(0, y - r); j < min(SCREEN_HEIGHT, y + r); j++) {
-			if (sqrt((i - x) * (i - x) + (j - y) * (j - y)) > r) continue;
+			if (sqrt((i - x) * (i - x) + (j - y) * (j - y)) > r) continue; // Only render a circle
+			// Calculate the 3d point on the surface
 			double x1 = double(i - x) / r;
 			double y1 = -double(j - y) / r;
 			double z1 = -sqrt(1 - x1 * x1 - y1 * y1);
-			double rr = sqrt(x1 * x1 + z1 * z1) * planet.r;
-			vec3 v1(-z1, 0, x1);
-			v1 = float(PI * 1.0 / sqrt(z1 * z1 + x1 * x1) * planet.r * planet.rotate) * v1;
-			v1 += v;
-			double vX = v1.x * v1.x + v1.y * v1.y + v1.z * v1.z;
-			double vvX = velocity.x * v1.x + velocity.y * v1.y + velocity.z * v1.z;
-			double yA = 1.0 / sqrt(1 - velocityX);
-			vec3 vr;
-			if (velocityX > 0.0001 && velocityX < 1.0) {
-				vr = float(1.0 / yA / (1 - vvX)) * (v1 - velocity + float((yA - 1) * (vvX / velocityX - 1)) * velocity);
-			} else {
-				vr = v1;
-			}
-
+			double rr = sqrt(x1 * x1 + z1 * z1) * planet.r; // The radius on x-z plane
 			vec3 p1 = vec3(x1, y1, z1);
 			p1 = glm::inverse(dir) * p1;
 			double zinv = 1.0 / (p1.z * planet.r + p.z);
 			if (zinv > depthBuffer[j][i]) {
 				depthBuffer[j][i] = zinv;
+				
+				// Calculate the point rotation speed for redshift
+				vec3 v1(-z1, 0, x1);
+				v1 = float(PI * 1.0 / sqrt(z1 * z1 + x1 * x1) * planet.r * planet.rotate) * v1;
+				v1 += v;
+				double vX = v1.x * v1.x + v1.y * v1.y + v1.z * v1.z;
+				double vvX = velocity.x * v1.x + velocity.y * v1.y + velocity.z * v1.z;
+				double yA = 1.0 / sqrt(1 - velocityX);
+				vec3 vr;
+				if (velocityX > 0.0001 && velocityX < 1.0) {
+					vr = float(1.0 / yA / (1 - vvX)) * (v1 - velocity + float((yA - 1) * (vvX / velocityX - 1)) * velocity);
+				}
+				else {
+					vr = v1;
+				}
+
+				int t1 = double(tmax) - z1 * planet.r * 1000; // The retarded time for point
+				if (mode == 0) t1 = tmax; // Ignore the light speed on mode 0
+				// Two map for flash
 				vec3 pixel = GetPixelSDL(planet.image, round((p1.x + 1) / 2 * imageSize * 0.98), round((-p1.y + 1) / 2 * imageSize * 0.98));
 				vec3 pixel1 = GetPixelSDL(planet.image1, round((p1.x + 1) / 2 * imageSize * 0.98), round((-p1.y + 1) / 2 * imageSize * 0.98));
-				int t1 = double(tmax) - z1 * planet.r * 1000;
-				if (mode == 0) t1 = tmax;
 				float imageRatio = float(abs(abs(t1 % 2000) - 1000)) / 1000;
 				vec3 pixel2 = imageRatio * pixel + float(1.0 - imageRatio) * pixel1;
-				if (mode == 2 && velocityX < 1.0) {
+				if (mode == 2 && velocityX < 1.0) { // The redshift
 					if (vr.z < 0) {
 						pixel2.x *= 1 + vr.z * colorShift;
 						pixel2.y *= 1 + vr.z * colorShift;
@@ -409,11 +383,11 @@ void Draw() {
 	}
 
 	for (size_t i = 0; i < planets.size(); i++) {
-		if (planets[i].parent != -1) {
+		if (planets[i].parent != -1) { // Calculate the global position and direction
 			planets[i].gp = planets[planets[i].parent].gdir * planets[i].p + planets[planets[i].parent].gp;
 			planets[i].gdir = planets[planets[i].parent].gdir * planets[i].gdir;
 		}
-		drawPlanet1(planets[i], i == planetFocus);
+		drawPlanet(planets[i], i == planetFocus);
 	}
 
 	drawGUI();
