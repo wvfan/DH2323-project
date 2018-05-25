@@ -6,6 +6,10 @@ Download SDL 1.2, and unzip it in this root folder. If you already have the SDL 
 
 Then use Visual Studio 2015 or 2017 to open the solution.
 
+Set the startup project to 'Project' rather than 'ALL_BUILD'
+
+Run the project and enjoy it!
+
 ## How to Use
 
 See the blog:
